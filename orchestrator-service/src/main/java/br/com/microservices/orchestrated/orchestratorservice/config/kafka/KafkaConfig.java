@@ -1,4 +1,4 @@
-package br.com.microservices.orchestrated.inventoryservice.config.kafka;
+package br.com.microservices.orchestrated.orchestratorservice.config.kafka;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -16,6 +16,8 @@ import org.springframework.kafka.core.*;
 import java.util.HashMap;
 import java.util.Map;
 
+import static br.com.microservices.orchestrated.orchestratorservice.core.enums.ETopics.*;
+
 @EnableKafka
 @Configuration
 @RequiredArgsConstructor
@@ -30,12 +32,6 @@ public class KafkaConfig {
     private String groupId;
     @Value("${spring.kafka.consumer.auto-offset-reset}")
     private String autoOffsetReset;
-    @Value("${spring.kafka.topic.orchestrator}")
-    private String orchestratorTopic;
-    @Value("${spring.kafka.topic.inventory-success}")
-    private String inventorySuccessTopic;
-    @Value("${spring.kafka.topic.inventory-fail}")
-    private String inventoryFailTopic;
 
     private Map<String, Object> consumerProps() {
         var props = new HashMap<String, Object>();
@@ -79,17 +75,52 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic startSagaTopic() {
+        return buildTopic(START_SAGA.getTopic());
+    }
+
+    @Bean
     public NewTopic orchestratorTopic() {
-        return buildTopic(orchestratorTopic);
+        return buildTopic(BASE_ORCHESTRATOR.getTopic());
+    }
+
+    @Bean
+    public NewTopic finishSuccessTopic() {
+        return buildTopic(FINISH_SUCCESS.getTopic());
+    }
+
+    @Bean
+    public NewTopic finishFailTopic() {
+        return buildTopic(FINISH_FAIL.getTopic());
+    }
+
+    @Bean
+    public NewTopic productValidationSuccessTopic() {
+        return buildTopic(PRODUCT_VALIDATION_SUCCESS.getTopic());
+    }
+
+    @Bean
+    public NewTopic productValidationFailTopic() {
+        return buildTopic(PRODUCT_VALIDATION_FAIL.getTopic());
+    }
+
+    @Bean
+    public NewTopic paymentSuccessTopic() {
+        return buildTopic(PAYMENT_SUCCESS.getTopic());
+    }
+
+    @Bean
+    public NewTopic paymentFailTopic() {
+        return buildTopic(PAYMENT_FAIL.getTopic());
     }
 
     @Bean
     public NewTopic inventorySuccessTopic() {
-        return buildTopic(inventorySuccessTopic);
+        return buildTopic(INVENTORY_SUCCESS.getTopic());
     }
 
     @Bean
     public NewTopic inventoryFailTopic() {
-        return buildTopic(inventoryFailTopic);
+        return buildTopic(INVENTORY_FAIL.getTopic());
     }
 }
