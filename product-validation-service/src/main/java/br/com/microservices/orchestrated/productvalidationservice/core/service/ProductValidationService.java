@@ -34,7 +34,7 @@ public class ProductValidationService {
         if (isEmpty(event.getPayload()) || isEmpty(event.getPayload().getProducts())) {
             throw new ValidationException("Product list is empty");
         }
-        if (isEmpty(event.getPayload().getId()) || isEmpty(event.getPayload().getTransactionId())) {
+        if (isEmpty(event.getPayload().getId()) || isEmpty(event.getTransactionId())) {
             throw new ValidationException("OrderID or TransactionID must be informed");
         }
     }
@@ -46,7 +46,7 @@ public class ProductValidationService {
     }
 
     private void validateExistingProduct(String code) {
-        if (productRepository.existsByCode(code)) {
+        if (!productRepository.existsByCode(code)) {
             throw new ValidationException("Product does not exists in database.");
         }
     }
@@ -65,7 +65,8 @@ public class ProductValidationService {
     }
 
     private void createValidation(Event event, boolean success) {
-        var validation = Validation.builder()
+        var validation = Validation
+                .builder()
                 .orderId(event.getPayload().getId())
                 .transactionId(event.getTransactionId())
                 .success(success)
@@ -74,7 +75,8 @@ public class ProductValidationService {
     }
 
     private void addHistory(Event event, String message) {
-        var history = History.builder()
+        var history = History
+                .builder()
                 .source(event.getSource())
                 .status(event.getStatus())
                 .message(message)
@@ -89,6 +91,29 @@ public class ProductValidationService {
         addHistory(event, "Products were validated successfully.");
     }
 
+    private void handleFailCurrentNotExecuted(Event event, String message) {
+        event.setStatus(ROLLBACK_PENDING);
+        event.setSource(CURRENT_SOURCE);
+        addHistory(event, "Fail to validate products: ".concat(message));
+    }
+
+    private void changeValidationToFail(Event event) {
+        validationRepository
+                .findByOrderIdAndTransactionId(event.getPayload().getId(), event.getTransactionId())
+                .ifPresentOrElse(validation -> {
+                    validation.setSuccess(false);
+                    validationRepository.save(validation);
+                }, () -> createValidation(event, false));
+    }
+
+    public void rollbackEvent(Event event) {
+        changeValidationToFail(event);
+        event.setStatus(FAIL);
+        event.setSource(CURRENT_SOURCE);
+        addHistory(event, "Rollback executed on product validation.");
+        producer.sendEvent(jsonUtil.toJson(event));
+    }
+
     public void validateExistingProducts(Event event) {
         try {
             checkCurrentValidation(event);
@@ -96,7 +121,7 @@ public class ProductValidationService {
             handleSuccess(event);
         } catch (Exception e) {
             log.error("Error trying to validate products: ", e);
-            //handleFailCurrentNotExecuted(event, e.getMessage());
+            handleFailCurrentNotExecuted(event, e.getMessage());
         }
         producer.sendEvent(jsonUtil.toJson(event));
     }
